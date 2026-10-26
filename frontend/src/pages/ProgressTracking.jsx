@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
+import { getQuizScorePercent, getSubjectQuizStats } from "../utils/quizProgress";
 import "../styles/accountPages.css";
 
 const readArray = (key) => {
@@ -22,11 +23,6 @@ const readSettings = () => {
   } catch {
     return {};
   }
-};
-
-const getScorePercent = (quiz) => {
-  const total = Number(quiz.total);
-  return total > 0 ? (Number(quiz.score) / total) * 100 : 0;
 };
 
 function ProgressTracking() {
@@ -101,7 +97,7 @@ function ProgressTracking() {
     return Number.isFinite(date) && date >= cutoff && date <= endOfToday.getTime();
   });
   const averageScore = filteredQuizzes.length
-    ? Math.round(filteredQuizzes.reduce((sum, quiz) => sum + getScorePercent(quiz), 0) / filteredQuizzes.length)
+    ? Math.round(filteredQuizzes.reduce((sum, quiz) => sum + getQuizScorePercent(quiz), 0) / filteredQuizzes.length)
     : 0;
   const minutesStudied = filteredSessions
     .filter((session) => session.done)
@@ -116,21 +112,7 @@ function ProgressTracking() {
     ? Math.min(100, Math.round((minutesStudied / goalMinutes) * 100))
     : 0;
 
-  const subjectStats = Object.entries(
-    filteredQuizzes.reduce((result, quiz) => {
-      const subject = quiz.subject || "Other";
-      result[subject] ||= { attempts: 0, score: 0 };
-      result[subject].attempts += 1;
-      result[subject].score += getScorePercent(quiz);
-      return result;
-    }, {}),
-  )
-    .map(([subject, stats]) => ({
-      subject,
-      attempts: stats.attempts,
-      average: Math.round(stats.score / stats.attempts),
-    }))
-    .sort((a, b) => b.average - a.average);
+  const subjectStats = getSubjectQuizStats(filteredQuizzes);
 
   const recentActivity = [
     ...filteredQuizzes.map((quiz) => ({
