@@ -1014,9 +1014,7 @@ function HistoryItem({
         }
       >
 
-        <div className="historyQuestionIcon">
-          ?
-        </div>
+        <div className="historyQuestionIcon"> ?  </div>
 
 
         <div className="historyQuestionText">

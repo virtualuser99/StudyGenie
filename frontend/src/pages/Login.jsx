@@ -6,17 +6,11 @@ import GoogleAuthButton from "../components/GoogleAuthButton";
 function Login() {
 
   const navigate = useNavigate();
-
-  const [email, setEmail] =
-    useState("");
-
-  const [password, setPassword] =
-    useState("");
-
-  const [message, setMessage] =
-    useState("");
+  const [email, setEmail] =useState("");
+  const [password, setPassword] =useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
-
+  const [showPassword, setShowPassword] = useState(false);
   const storeSession = (data) => {
     localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data.user));
@@ -113,9 +107,7 @@ function Login() {
           onSubmit={handleLogin}
         >
 
-          <h1>
-            Welcome Back!
-          </h1>
+          <h1>Welcome Back!</h1>
 
           <p>
             Login to continue your learning journey
@@ -147,34 +139,30 @@ function Login() {
             }
             required
           />
+<label htmlFor="login-password">
+  Password
+</label>
 
+<div className="passwordWrapper">
+  <input
+    id="login-password"
+    type={showPassword ? "text" : "password"}
+    placeholder="Enter password"
+    autoComplete="current-password"
+    value={password}
+    onChange={(e) => setPassword(e.target.value)}
+    required
+  />
 
-          <label htmlFor="login-password">
-            Password
-          </label>
-
-          <input
-            id="login-password"
-            type="password"
-            placeholder="Enter password"
-            autoComplete="current-password"
-            value={password}
-            onChange={
-              (e) =>
-                setPassword(e.target.value)
-            }
-            required
-          />
-
-
-          <button
-            type="submit"
-            className="authButton"
-            disabled={loading}
-          >
-            {loading ? "Signing in..." : "Login"}
-          </button>
-
+  <button
+    type="button"
+    className="togglePassword"
+    onClick={() => setShowPassword(!showPassword)}
+    aria-label={showPassword ? "Hide password" : "Show password"}
+  >
+    {showPassword ? "🙈" : "👁️"}
+  </button>
+</div>
 
           {message && (
             <p className="message" role="alert">
@@ -182,24 +170,16 @@ function Login() {
             </p>
           )}
 
-
           <p className="switchAuth">
-
             Don't have an account?
-
             <Link to="/register">
               Register
             </Link>
-
           </p>
-
         </form>
-
       </div>
-
     </div>
 
   );
 }
-
 export default Login;

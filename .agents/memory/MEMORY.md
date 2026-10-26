@@ -1,2 +1,0 @@
-- [Imported frontend dependencies](imported-frontend-dependencies.md) — Zip imports may carry platform-specific binaries and non-executable npm wrappers; validate dependencies before using scripts.
-- [Replit preview API calls](replit-preview-api-calls.md) — Use same-origin relative API paths; browser-side localhost URLs target the visitor's device, not the Replit backend.

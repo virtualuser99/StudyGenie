@@ -1,0 +1,8 @@
+EXAM Day
+B4 6491 --- 6519
+
+17-10-2026 || L2  11 to 1.30  || Mobile Programming
+19-10-2026 || L1  11 to 12.30 to 1.30  || MERN Technology  to JAVA
+
+22-10-2026 || L1  10.30 to 12.30  ||Design Principle of Internet of Thing
+24-10-2026 || L2  10.30 to 12.30  || Artificial Intelligence  and Application

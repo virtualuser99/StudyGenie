@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-
 const doubtSchema = new mongoose.Schema(
   {
     user: {
@@ -30,5 +29,4 @@ const doubtSchema = new mongoose.Schema(
   }
 );
 
-module.exports =
-  mongoose.model("Doubt", doubtSchema);
+module.exports = mongoose.model("Doubt", doubtSchema);
