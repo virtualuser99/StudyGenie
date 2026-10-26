@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import { Link } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Topbar from "../components/Topbar";
+import { QUICK_QUIZZES, QUICK_QUIZ_SUBJECTS } from "../data/quickQuizzes";
 import "../styles/learningTools.css";
 
 const SUPPORTED_MATERIAL = /\.(pdf|docx|txt)$/i;
@@ -14,6 +15,9 @@ function QuizAssessment() {
   const [hasToken] = useState(() => Boolean(localStorage.getItem("token")));
   const [materialsLoading, setMaterialsLoading] = useState(hasToken);
   const [history, setHistory] = useState([]);
+  const [quizMode, setQuizMode] = useState("quick");
+  const [selectedQuickSubject, setSelectedQuickSubject] = useState("DBMS");
+  const [quizSource, setQuizSource] = useState("quick");
   const [studyKit, setStudyKit] = useState(null);
   const [quiz, setQuiz] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -24,9 +28,7 @@ function QuizAssessment() {
   const [savingAttempt, setSavingAttempt] = useState(false);
   const [canRetryGeneration, setCanRetryGeneration] = useState(false);
   const [quotaBlocked, setQuotaBlocked] = useState(false);
-  const [error, setError] = useState(
-    hasToken ? "" : "Sign in to use your uploaded study materials."
-  );
+  const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -105,11 +107,24 @@ function QuizAssessment() {
 
   const startQuiz = () => {
     if (!studyKit?.questions?.length) return;
+    setQuizSource("material");
     setQuiz(studyKit.questions);
     setCurrentQuestion(0);
     setAnswers({});
     setShowReview(false);
     setReviewAnswers(false);
+  };
+
+  const startQuickQuiz = () => {
+    const questions = QUICK_QUIZZES[selectedQuickSubject];
+    if (!questions) return;
+    setQuizSource("quick");
+    setQuiz(questions);
+    setCurrentQuestion(0);
+    setAnswers({});
+    setShowReview(false);
+    setReviewAnswers(false);
+    setError("");
   };
 
   const finishQuiz = async () => {
@@ -119,6 +134,14 @@ function QuizAssessment() {
       0
     );
     const token = localStorage.getItem("token");
+
+    if (!token) {
+      setError("Sign in to save this quiz result. You can still review your answers below.");
+      setShowReview(true);
+      setReviewAnswers(true);
+      return;
+    }
+
     setSavingAttempt(true);
     setError("");
     setCanRetryGeneration(false);
@@ -126,11 +149,14 @@ function QuizAssessment() {
     try {
       const response = await axios.post(
         "/api/quizzes/attempts",
-        { materialId: selectedMaterialId, score, total: quiz.length },
+        quizSource === "quick"
+          ? { quizType: "quick", subject: selectedQuickSubject, score, total: quiz.length }
+          : { quizType: "material", materialId: selectedMaterialId, score, total: quiz.length },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setHistory((previous) => [response.data, ...previous].slice(0, 100));
       setShowReview(true);
+      setReviewAnswers(quizSource === "quick");
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Could not save your quiz result. Finish the quiz again to retry.");
     } finally {
@@ -143,6 +169,11 @@ function QuizAssessment() {
     : 0;
   const question = quiz?.[currentQuestion];
   const allAnswered = quiz && Object.keys(answers).length === quiz.length;
+  const visibleError = error || (
+    quizMode === "material" && quotaBlocked
+      ? "The AI daily quota is exhausted. Wait for it to reset, then reload this page to try again."
+      : ""
+  );
 
   return (
     <div className="dashboardLayout">
@@ -151,9 +182,9 @@ function QuizAssessment() {
         <Topbar />
         <section className="learningPageIntro">
           <div>
-            <span className="learningEyebrow">STUDY FROM YOUR UPLOADS</span>
-            <h1>AI summary &amp; quiz</h1>
-            <p>Choose a study file to get a summary and a practice quiz made from its content.</p>
+            <span className="learningEyebrow">PRACTICE &amp; LEARN</span>
+            <h1>Quiz &amp; Assessment</h1>
+            <p>Take a quick subject challenge or build a quiz from your study materials.</p>
           </div>
           {quiz && !showReview && (
             <button className="learningSecondaryButton" onClick={() => setQuiz(null)} type="button">
@@ -162,10 +193,10 @@ function QuizAssessment() {
           )}
         </section>
 
-        {error && (
+        {visibleError && (
           <div className="quizErrorNotice" role="alert">
-            <span>{error}</span>
-            {canRetryGeneration && selectedMaterial && !generating && !quiz && (
+            <span>{visibleError}</span>
+            {canRetryGeneration && quizMode === "material" && selectedMaterial && !generating && !quiz && (
               <button type="button" onClick={generateStudyKit}>Try again</button>
             )}
           </div>
@@ -174,54 +205,112 @@ function QuizAssessment() {
         {!quiz ? (
           <div className="learningGrid quizLandingGrid">
             <section className="learningCard quizSetupCard">
-              <div className="learningCardHeading">
-                <div className="learningIcon" aria-hidden="true">✦</div>
-                <div>
-                  <h2>Turn your material into practice</h2>
-                  <p>Your summary and questions are based on the selected upload.</p>
-                </div>
-              </div>
-
-              {materialsLoading ? (
-                <p className="learningEmptyNote">Loading your uploaded materials…</p>
-              ) : materials.length ? (
+              {quizMode === "quick" ? (
                 <>
-                  <label className="learningLabel" htmlFor="quiz-material">Choose study material</label>
-                  <select
-                    className="quizMaterialSelect"
-                    id="quiz-material"
-                    value={selectedMaterialId}
-                    disabled={generating}
-                    onChange={(event) => {
-                      setSelectedMaterialId(event.target.value);
-                      setStudyKit(null);
-                      setError("");
-                      setCanRetryGeneration(false);
-                    }}
-                  >
-                    {materials.map((material) => (
-                      <option key={material._id} value={material._id}>
-                        {material.originalName} · {material.subject || "General"}
-                      </option>
+                  <div className="learningCardHeading">
+                    <div className="learningIcon" aria-hidden="true">✦</div>
+                    <div>
+                      <h2>Ready for a quick challenge?</h2>
+                      <p>Choose a subject and start a five-question practice quiz.</p>
+                    </div>
+                  </div>
+                  <p className="learningLabel">Choose a subject</p>
+                  <div className="subjectOptions" aria-label="Quick quiz subjects">
+                    {QUICK_QUIZ_SUBJECTS.map((subject) => (
+                      <button
+                        aria-pressed={selectedQuickSubject === subject.name}
+                        className={`subjectOption ${selectedQuickSubject === subject.name ? "selected" : ""}`}
+                        key={subject.name}
+                        onClick={() => setSelectedQuickSubject(subject.name)}
+                        type="button"
+                      >
+                        <span aria-hidden="true">{subject.icon}</span>
+                        <strong>{subject.name}</strong>
+                        <small>5 questions · 5 min</small>
+                      </button>
                     ))}
-                  </select>
-                  <p className="quizSupportedTypes">Supported files: PDF, DOCX, TXT</p>
-                  <button className="learningPrimaryButton" disabled={generating || !selectedMaterial || quotaBlocked} onClick={generateStudyKit} type="button">
-                    {quotaBlocked ? "AI quota reached" : generating ? "Generating summary & quiz…" : "Generate summary & quiz"}
-                    {!generating && !quotaBlocked && <span aria-hidden="true">→</span>}
+                  </div>
+                  <button className="learningPrimaryButton" onClick={startQuickQuiz} type="button">
+                    Start {selectedQuickSubject} quiz <span aria-hidden="true">→</span>
+                  </button>
+                  <p className="quizNote"><span aria-hidden="true">✦</span>Instant results with explanations for every question</p>
+                  <button
+                    className="quizModeLink"
+                    onClick={() => {
+                      setQuizMode("material");
+                      setError("");
+                    }}
+                    type="button"
+                  >
+                    Build a quiz from my uploaded material <span aria-hidden="true">→</span>
                   </button>
                 </>
               ) : (
-                <div className="learningEmptyNote quizNoMaterials">
-                  <p>No supported uploads found yet. Upload a PDF, DOCX, or TXT file to get started.</p>
-                  <Link className="learningPrimaryButton" to="/materials">Upload study material <span aria-hidden="true">→</span></Link>
-                </div>
+                <>
+                  <div className="learningCardHeading">
+                    <div className="learningIcon" aria-hidden="true">✦</div>
+                    <div>
+                      <h2>Turn your material into practice</h2>
+                      <p>Your summary and questions are based on the selected upload.</p>
+                    </div>
+                  </div>
+                  <button
+                    className="quizModeLink"
+                    onClick={() => {
+                      setQuizMode("quick");
+                      setError("");
+                    }}
+                    type="button"
+                  >
+                    ← Quick subject challenge
+                  </button>
+                  {!hasToken ? (
+                    <div className="learningEmptyNote quizNoMaterials">
+                      <p>Sign in to use your uploaded study materials.</p>
+                      <Link className="learningPrimaryButton" to="/login">Sign in <span aria-hidden="true">→</span></Link>
+                    </div>
+                  ) : materialsLoading ? (
+                    <p className="learningEmptyNote">Loading your uploaded materials…</p>
+                  ) : materials.length ? (
+                    <>
+                      <label className="learningLabel" htmlFor="quiz-material">Choose study material</label>
+                      <select
+                        className="quizMaterialSelect"
+                        id="quiz-material"
+                        value={selectedMaterialId}
+                        disabled={generating}
+                        onChange={(event) => {
+                          setSelectedMaterialId(event.target.value);
+                          setStudyKit(null);
+                          setError("");
+                          setCanRetryGeneration(false);
+                        }}
+                      >
+                        {materials.map((material) => (
+                          <option key={material._id} value={material._id}>
+                            {material.originalName} · {material.subject || "General"}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="quizSupportedTypes">Supported files: PDF, DOCX, TXT</p>
+                      <button className="learningPrimaryButton" disabled={generating || !selectedMaterial || quotaBlocked} onClick={generateStudyKit} type="button">
+                        {quotaBlocked ? "AI quota reached" : generating ? "Generating summary & quiz…" : "Generate summary & quiz"}
+                        {!generating && !quotaBlocked && <span aria-hidden="true">→</span>}
+                      </button>
+                    </>
+                  ) : (
+                    <div className="learningEmptyNote quizNoMaterials">
+                      <p>No supported uploads found yet. Upload a PDF, DOCX, or TXT file to get started.</p>
+                      <Link className="learningPrimaryButton" to="/materials">Upload study material <span aria-hidden="true">→</span></Link>
+                    </div>
+                  )}
+                </>
               )}
             </section>
 
             <aside className="learningCard quizProgressCard">
               <div className="learningCardTitleRow">
-                <h2>Your quiz history</h2>
+                <h2>Your practice</h2>
                 <span className="learningTitleIcon" aria-hidden="true">✓</span>
               </div>
               <div className="practiceScore">
@@ -253,7 +342,7 @@ function QuizAssessment() {
               )}
             </aside>
 
-            {studyKit && (
+            {studyKit && quizMode === "material" && (
               <section className="learningCard quizSummaryCard">
                 <div className="quizSummaryHeader">
                   <div>
@@ -273,13 +362,27 @@ function QuizAssessment() {
             <div className="resultIllustration" aria-hidden="true">{score === quiz.length ? "🏆" : score >= 3 ? "✨" : "🌱"}</div>
             <span className="learningEyebrow">QUIZ COMPLETE</span>
             <h2>{score === quiz.length ? "Perfect score!" : score >= 3 ? "Nice work!" : "Good start — keep going!"}</h2>
-            <p>You scored <strong>{score} out of {quiz.length}</strong> on {selectedMaterial?.originalName || "your study material"}.</p>
+            <p>You scored <strong>{score} out of {quiz.length}</strong> on {quizSource === "quick" ? `${selectedQuickSubject} quick quiz` : selectedMaterial?.originalName || "your study material"}.</p>
             <div className="resultBar"><span style={{ width: `${(score / quiz.length) * 100}%` }} /></div>
             <span className="resultPercent">{Math.round((score / quiz.length) * 100)}% correct</span>
             <div className="resultActions">
               <button className="learningPrimaryButton" onClick={() => setReviewAnswers((visible) => !visible)} type="button">{reviewAnswers ? "Hide answer review" : "Review answers"}</button>
-              <button className="learningSecondaryButton" onClick={startQuiz} type="button">Try again</button>
-              <button className="learningSecondaryButton" onClick={() => { setQuiz(null); setStudyKit(null); }} type="button">Choose another file</button>
+              <button className="learningSecondaryButton" onClick={quizSource === "quick" ? startQuickQuiz : startQuiz} type="button">Try again</button>
+              <button
+                className="learningSecondaryButton"
+                onClick={() => {
+                  setQuiz(null);
+                  setStudyKit(null);
+                  setShowReview(false);
+                  setReviewAnswers(false);
+                  setAnswers({});
+                  setQuizMode(quizSource === "quick" ? "quick" : "material");
+                  setError("");
+                }}
+                type="button"
+              >
+                {quizSource === "quick" ? "Choose another subject" : "Choose another file"}
+              </button>
             </div>
             {reviewAnswers && (
               <div className="answerReviewList">
@@ -300,7 +403,7 @@ function QuizAssessment() {
         ) : (
           <section className="learningCard activeQuizCard">
             <div className="quizProgressHeader">
-              <div><span className="learningEyebrow">{(selectedMaterial?.subject || "STUDY MATERIAL").toUpperCase()}</span><h2>Question {currentQuestion + 1} <span>of {quiz.length}</span></h2></div>
+              <div><span className="learningEyebrow">{(quizSource === "quick" ? selectedQuickSubject : selectedMaterial?.subject || "STUDY MATERIAL").toUpperCase()}</span><h2>Question {currentQuestion + 1} <span>of {quiz.length}</span></h2></div>
               <span className="quizQuestionCount">{Object.keys(answers).length} answered</span>
             </div>
             <div className="questionProgressTrack"><span style={{ width: `${((currentQuestion + 1) / quiz.length) * 100}%` }} /></div>

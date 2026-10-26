@@ -4,6 +4,7 @@ const Material = require("../models/Material");
 const QuizAttempt = require("../models/QuizAttempt");
 
 const router = express.Router();
+const QUICK_QUIZ_SUBJECTS = new Set(["DBMS", "Operating Systems", "Java"]);
 
 router.get("/history", authMiddleware, async (req, res) => {
   try {
@@ -14,7 +15,8 @@ router.get("/history", authMiddleware, async (req, res) => {
 
     res.json(attempts.map((attempt) => ({
       id: String(attempt._id),
-      materialId: String(attempt.material),
+      materialId: attempt.material ? String(attempt.material) : null,
+      quizType: attempt.quizType || (attempt.material ? "material" : "quick"),
       materialName: attempt.materialName,
       subject: attempt.subject,
       score: attempt.score,
@@ -29,41 +31,67 @@ router.get("/history", authMiddleware, async (req, res) => {
 
 router.post("/attempts", authMiddleware, async (req, res) => {
   try {
-    const { materialId, score, total } = req.body;
+    const {
+      materialId,
+      quizType = "material",
+      subject,
+      score,
+      total
+    } = req.body;
+    const isQuickQuiz = quizType === "quick";
+    const validQuizType = isQuickQuiz || quizType === "material";
 
     if (
-      !/^[a-f\d]{24}$/i.test(materialId || "")
+      !validQuizType
       || !Number.isInteger(score)
       || !Number.isInteger(total)
       || total < 1
       || total > 50
       || score < 0
       || score > total
+      || (isQuickQuiz && (!QUICK_QUIZ_SUBJECTS.has(subject) || total !== 5))
+      || (!isQuickQuiz && !/^[a-f\d]{24}$/i.test(materialId || ""))
     ) {
       return res.status(400).json({ message: "Quiz result is invalid" });
     }
 
-    const material = await Material.findOne({
-      _id: materialId,
-      user: req.user.id
-    }).select("originalName subject");
+    let attemptDetails;
+    if (isQuickQuiz) {
+      attemptDetails = {
+        material: null,
+        materialName: `${subject} Quick Quiz`,
+        subject,
+        quizType: "quick"
+      };
+    } else {
+      const material = await Material.findOne({
+        _id: materialId,
+        user: req.user.id
+      }).select("originalName subject");
 
-    if (!material) {
-      return res.status(404).json({ message: "Study material not found" });
+      if (!material) {
+        return res.status(404).json({ message: "Study material not found" });
+      }
+
+      attemptDetails = {
+        material: material._id,
+        materialName: material.originalName,
+        subject: material.subject || "General",
+        quizType: "material"
+      };
     }
 
     const attempt = await QuizAttempt.create({
       user: req.user.id,
-      material: material._id,
-      materialName: material.originalName,
-      subject: material.subject || "General",
+      ...attemptDetails,
       score,
       total
     });
 
     res.status(201).json({
       id: String(attempt._id),
-      materialId: String(attempt.material),
+      materialId: attempt.material ? String(attempt.material) : null,
+      quizType: attempt.quizType,
       materialName: attempt.materialName,
       subject: attempt.subject,
       score: attempt.score,

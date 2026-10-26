@@ -11,7 +11,12 @@ const quizAttemptSchema = new mongoose.Schema(
     material: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Material",
-      required: true
+      default: null
+    },
+    quizType: {
+      type: String,
+      enum: ["material", "quick"],
+      default: "material"
     },
     materialName: {
       type: String,
