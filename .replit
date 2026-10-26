@@ -68,3 +68,7 @@ externalPort = 3000
 [userenv.shared]
 GEMINI_MODEL = "gemini-3.8-flash"
 GOOGLE_CLIENT_ID = "909570171378-bdl1jlpoob70fioukd2a1t3sn3ghpc7r.apps.googleusercontent.com"
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 180000
