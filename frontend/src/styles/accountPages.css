@@ -650,3 +650,25 @@
   font-size: 18px;
   padding: 0;
 }
+
+.authBtn {
+  width: 100%;
+  padding: 14px;
+  margin-top: 18px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #6d3df0, #5427d9);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.authBtn:hover {
+  opacity: 0.92;
+}
+
+.authBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

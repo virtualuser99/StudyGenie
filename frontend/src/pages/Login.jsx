@@ -170,6 +170,9 @@ function Login() {
             </p>
           )}
 
+           <button type="submit" className="authBtn" disabled={loading}>
+            {loading ? "Logging in..." : "Login"}
+          </button>
           <p className="switchAuth">
             Don't have an account?
             <Link to="/register">
